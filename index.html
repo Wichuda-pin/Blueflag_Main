@@ -75,7 +75,6 @@
         .sortable-header { cursor: pointer; user-select: none; }
         .sortable-header:hover { background-color: #e2e8f0; }
 
-        /* การตั้งค่า พิมพ์/PDF ตัดขอบเทาฝั่งขวาออกสมบูรณ์แบบ 100% */
         @media print {
             thead { display: table-header-group !important; }
             tfoot { display: table-footer-group !important; }
@@ -348,7 +347,7 @@
                 <div class="bg-white rounded-xl report-document-container text-slate-800" id="reportDocument">
                     <div class="border-b-2 border-brand-800 pb-4 mb-4 flex justify-between items-center">
                         <div>
-                            <h1 class="text-lg font-bold text-brand-900">รายงานสรุปผลการดำเนินโครงการธงฟ้า (ภาพรวมการจำหน่าย)</h1>
+                            <h1 class="text-lg font-bold text-brand-900">รายงานสรุปผลการดำเนินโครงการ"ไทยช่วยไทยลดค่าครองชีพ"</h1>
                             <p class="text-xs text-slate-500">วันที่ออกรายงาน: <span id="reportDateText"></span></p>
                         </div>
                     </div>
@@ -365,9 +364,9 @@
                                     <tr class="bg-slate-100 text-slate-700">
                                         <th class="p-2 border border-slate-300 text-center w-12">ที่</th>
                                         <th class="p-2 border border-slate-300">ครั้งที่จำหน่าย / สถานที่</th>
-                                        <th class="p-2 border border-slate-300 text-right w-32">ราคาชดเชยรวม (บ.)</th>
                                         <th class="p-2 border border-slate-300 text-right w-32">มูลค่าการจำหน่าย (บ.)</th>
                                         <th class="p-2 border border-slate-300 text-right w-36">ลดค่าครองชีพประชาชน (บ.)</th>
+                                        <th class="p-2 border border-slate-300 text-right w-32">ลดค่าครองชีพ(ร้อยละ)</th>
                                     </tr>
                                 </thead>
                                 <tbody id="reportFinancialTableBody" class="divide-y divide-slate-200"></tbody>
@@ -465,7 +464,7 @@
 
                     <div class="report-page-landscape" id="reportContent">
                         <div class="w-full text-center mb-4">
-                            <h2 class="text-base font-bold text-black leading-tight" id="previewLocation">ธงฟ้า ณ จุดจำหน่าย</h2>
+                            <h2 class="text-base font-bold text-black leading-tight" id="previewLocation">ณ .....</h2>
                             <p class="text-sm font-bold text-black mt-1" id="previewDate">วันที่...</p>
                         </div>
 
@@ -707,6 +706,11 @@
 
         let printTargetTab = 'tab-reports';
 
+        function sanitizeLocationName(str) {
+            if (!str) return 'จุดจำหน่าย';
+            return str.replace(/^ธงฟ้า\s*ณ\s*/i, '').replace(/^ณ\s*/i, '').trim();
+        }
+
         window.onload = function() {
             loadFromLocalStorage();
             if(db.sessions.length === 0 && db.sellingPoints.length > 0) {
@@ -715,13 +719,18 @@
                         id: 'session_' + sp.id,
                         sellingPointId: sp.id,
                         title: sp.name,
-                        location: `ธงฟ้า ณ ${sp.name}`,
+                        location: sanitizeLocationName(sp.name),
                         date: sp.datetime ? new Date(sp.datetime).toLocaleDateString('th-TH') : '',
                         salesQuantities: { "1": 100, "2": 200, "3": 150 },
                         expenses: JSON.parse(JSON.stringify(db.masterExpenses))
                     });
                 });
                 if(db.sessions.length > 0) db.activeSessionId = db.sessions[0].id;
+                saveToLocalStorage();
+            } else if (db.sessions.length > 0) {
+                db.sessions.forEach(s => {
+                    if (s.location) s.location = sanitizeLocationName(s.location);
+                });
                 saveToLocalStorage();
             }
 
@@ -813,6 +822,10 @@
                     db.masterProducts = imported.masterProducts || db.masterProducts;
                     db.masterExpenses = imported.masterExpenses || db.masterExpenses;
                     db.sessions = imported.sessions || [];
+
+                    db.sessions.forEach(s => {
+                        if (s.location) s.location = sanitizeLocationName(s.location);
+                    });
                     
                     if(db.sessions.length === 0 && db.sellingPoints.length > 0) {
                         db.sellingPoints.forEach(sp => {
@@ -820,7 +833,7 @@
                                 id: 'session_' + sp.id,
                                 sellingPointId: sp.id,
                                 title: sp.name,
-                                location: `ธงฟ้า ณ ${sp.name}`,
+                                location: sanitizeLocationName(sp.name),
                                 date: sp.datetime ? new Date(sp.datetime).toLocaleDateString('th-TH') : '',
                                 salesQuantities: { "1": 100, "2": 200, "3": 150 },
                                 expenses: JSON.parse(JSON.stringify(db.masterExpenses))
@@ -1087,7 +1100,7 @@
                     id: 'session_' + id,
                     sellingPointId: id,
                     title: name,
-                    location: `${name}`,
+                    location: sanitizeLocationName(name),
                     date: obj.datetime ? obj.datetime.split('T')[0] : '',
                     salesQuantities: { "1": 100, "2": 200, "3": 150 },
                     expenses: JSON.parse(JSON.stringify(db.masterExpenses))
@@ -1241,7 +1254,7 @@
                                 id: 'session_' + id,
                                 sellingPointId: id,
                                 title: name,
-                                location: name,
+                                location: sanitizeLocationName(name),
                                 date: new Date().toISOString().slice(0,10),
                                 salesQuantities: { "1": 100, "2": 200, "3": 150 },
                                 expenses: JSON.parse(JSON.stringify(db.masterExpenses))
@@ -1354,23 +1367,24 @@
             if (!tbody) return;
 
             tbody.innerHTML = db.sessions.map((s, i) => {
-                let sessionComp = 0, sessionSales = 0, sessionCostLiving = 0;
+                let sessionSales = 0, sessionCostLiving = 0, sessionMarket = 0;
                 db.masterProducts.forEach(p => {
-                    const qty = s.salesQuantities[p.id] || 0;
-                    sessionComp += (p.costPrice - p.thongfaPrice) * qty;
+                    const qty = s.salesQuantities[p.id] !== undefined ? s.salesQuantities[p.id] : 100;
                     sessionSales += p.thongfaPrice * qty;
                     sessionCostLiving += (p.marketPrice - p.thongfaPrice) * qty;
+                    sessionMarket += p.marketPrice * qty;
                 });
-                let totalExpense = s.expenses ? s.expenses.reduce((acc, x) => acc + (x.amount || 0), 0) : 0;
-                let grandComp = sessionComp + totalExpense;
+
+                let costLivingPercent = sessionMarket > 0 ? ((sessionCostLiving / sessionMarket) * 100).toFixed(2) : '0.00';
+                let displayLocation = s.location ? sanitizeLocationName(s.location) : '';
 
                 return `
                     <tr>
                         <td class="p-2 border border-slate-300 text-center font-medium">${i+1}</td>
-                        <td class="p-2 border border-slate-300 font-semibold text-slate-800">${s.title}<br><span class="text-[10px] text-slate-500 font-normal">${s.location || ''}</span></td>
-                        <td class="p-2 border border-slate-300 text-right font-mono">${grandComp.toLocaleString('th-TH', {minimumFractionDigits:2})}</td>
+                        <td class="p-2 border border-slate-300 font-semibold text-slate-800">${s.title}<br><span class="text-[10px] text-slate-500 font-normal">${displayLocation ? 'ณ ' + displayLocation : ''}</span></td>
                         <td class="p-2 border border-slate-300 text-right font-mono">${sessionSales.toLocaleString('th-TH', {minimumFractionDigits:2})}</td>
                         <td class="p-2 border border-slate-300 text-right font-mono">${sessionCostLiving.toLocaleString('th-TH', {minimumFractionDigits:2})}</td>
+                        <td class="p-2 border border-slate-300 text-right font-mono">${costLivingPercent}</td>
                     </tr>
                 `;
             }).join('');
@@ -1456,7 +1470,7 @@
             if (!s) return;
             const locInput = document.getElementById('inputLocation');
             const dateInput = document.getElementById('inputDate');
-            if(locInput) locInput.value = s.location || '';
+            if(locInput) locInput.value = s.location ? sanitizeLocationName(s.location) : '';
             if(dateInput) dateInput.value = s.date || '';
             renderInputSalesTable();
             renderInputExpensesTable();
@@ -1519,7 +1533,7 @@
         function updateCurrentSessionHeader() {
             const s = getCurrentSession();
             if(!s) return;
-            s.location = document.getElementById('inputLocation').value;
+            s.location = sanitizeLocationName(document.getElementById('inputLocation').value);
             s.date = document.getElementById('inputDate').value;
             renderReport();
         }
@@ -1528,7 +1542,7 @@
             const s = getCurrentSession();
             const pLoc = document.getElementById('previewLocation');
             const pDate = document.getElementById('previewDate');
-            if(pLoc) pLoc.innerText = s ? (s.location ? `ธงฟ้า ณ ${s.location}` : 'ธงฟ้า ณ จุดจำหน่าย') : '';
+            if(pLoc) pLoc.innerText = s ? (s.location ? `ณ ${sanitizeLocationName(s.location)}` : 'ณ .....') : '';
             if(pDate) pDate.innerText = s ? (s.date || '') : '';
 
             const tbody = document.getElementById('previewProductTableBody');
@@ -1594,7 +1608,7 @@
             }
             document.getElementById('sumExpenseTotal').innerText = totalExpense.toLocaleString('th-TH', {minimumFractionDigits:2});
 
-            let ratio = sumSales > 0 ? (totalComp / sumSales).toFixed(8) : "0.00000000";
+            let ratio = sumMarket > 0 ? ((sumCostLiving / sumMarket) * 100).toFixed(8) : "0.00000000";
             const ratioEl = document.getElementById('ratioDisplay');
             if(ratioEl) ratioEl.innerText = ratio;
         }
