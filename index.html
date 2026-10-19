@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบบันทึกข้อมูลโครงการธงฟ้า (Blue Flag Integrated Management System)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff', 100: '#e0effe', 200: '#bae0fd', 300: '#7cc5fb',
+                            400: '#36a7f8', 500: '#0083eb', 600: '#0062c4', 700: '#0051a3',
+                            800: '#064585', 900: '#0b3a6e',
+                        }
+                    },
+                    fontFamily: { sans: ['Kanit', 'Sarabun', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+        body { font-family: 'Kanit', 'Sarabun', sans-serif; }
+        .map-container { min-height: 480px; }
+        @media (max-width: 768px) { .map-container { min-height: 350px; } }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
+        .report-page-landscape {
+            width: 100%;
+            max-width: 280mm;
+            min-height: 195mm;
+            padding: 10mm 12mm;
+            margin: 20px auto;
+            background: #ffffff !important;
+            border: none !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .report-document-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            background: #ffffff !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-sizing: border-box;
+        }
+
+        table.report-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 12px; background-color: #ffffff; }
+        table.report-table th, table.report-table td { border: 1px solid #000000; padding: 5px 6px; text-align: center; vertical-align: middle; }
+        table.report-table th { background-color: #ffffff; font-weight: 600; }
+        .text-left-custom { text-align: left !important; }
+        .text-right-custom { text-align: right !important; }
+
+        .sortable-header { cursor: pointer; user-select: none; }
+        .sortable-header:hover { background-color: #e2e8f0; }
+
+        @media print {
+            thead { display: table-header-group !important; }
+            tfoot { display: table-footer-group !important; }
+            tr { page-break-inside: avoid !important; }
+            
+            *, *:before, *:after { 
+                background: transparent !important;
+                box-shadow: none !important;
+                text-shadow: none !important;
+            }
+
+            html, body {
+                margin: 0 !important; 
+                padding: 0 !important;
+                width: 100% !important;
+                min-width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                overflow: hidden !important;
+                background: #ffffff !important;
+            }
+
+            .no-print { display: none !important; }
+
+            body.printing-custom .tab-content { display: none !important; }
+            body.printing-custom.print-target-tab-reports #tab-reports { display: block !important; width: 100% !important; }
+            body.printing-custom.print-target-tab-financial-report #tab-financial-report { display: block !important; width: 100% !important; }
+            
+            body.printing-custom #mainWorkspace,
+            body.printing-custom #tab-financial-report,
+            body.printing-custom #tab-reports,
+            body.printing-custom #reportDocument,
+            body.printing-custom #reportContent,
+            body.printing-custom .report-page-landscape,
+            body.printing-custom .report-document-container {
+                box-shadow: none !important;
+                border: none !important;
+                outline: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 100% !important;
+                background: #ffffff !important;
+            }
+
+            .report-table {
+                width: 100% !important;
+                page-break-after: auto;
+            }
+        }
+
+        .custom-pin-marker { display: flex; align-items: center; justify-content: center; }
+        .pin-wrapper { position: relative; width: 32px; height: 42px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 3px 5px rgba(0, 0, 0, 0.4)); transition: transform 0.2s ease; }
+        .pin-wrapper:hover { transform: scale(1.18) translateY(-4px); }
+        .pin-body { position: absolute; width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); top: 0; left: 0; border: 2px solid #ffffff; }
+        .pin-body.done { background: linear-gradient(135deg, #10b981, #059669); }
+        .pin-body.pending { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .pin-icon { position: absolute; top: 7px; color: #ffffff; font-size: 13px; z-index: 10; }
+    </style>
+</head>
+<body class="h-full flex flex-col text-slate-800 bg-slate-50 antialiased">
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="fixed top-5 right-5 z-50 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 transition-all duration-300 opacity-0 pointer-events-none transform translate-y-[-10px] max-w-sm">
+        <i class="fa-solid fa-circle-check text-xl flex-shrink-0"></i>
+        <div>
+            <div class="font-bold text-sm" id="toastTitle">สำเร็จ</div>
+            <div class="text-xs text-emerald-100" id="toastMessage">บันทึกข้อมูลเรียบร้อยแล้ว</div>
+        </div>
+    </div>
+
+    <header class="bg-gradient-to-r from-brand-800 via-brand-700 to-brand-600 text-white shadow-lg sticky top-0 z-30 no-print">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-2 sm:space-x-3 overflow-hidden">
+                    <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center text-yellow-300 font-bold text-lg shadow-inner flex-shrink-0">
+                        <i class="fa-solid fa-flag text-white"></i>
+                    </div>
+                    <div class="truncate">
+                        <h1 class="text-sm sm:text-lg md:text-xl font-bold tracking-tight text-white truncate leading-tight">ระบบบันทึกข้อมูลโครงการธงฟ้า (บูรณาการ V.6)</h1>
+                        <p class="text-[10px] sm:text-xs text-brand-100 font-light hidden sm:block">Blue Flag Integrated Management System</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-1 sm:space-x-2">
+                    <button onclick="clearAllData()" class="bg-red-600/80 hover:bg-red-600 text-white border border-red-500/40 text-xs px-2.5 py-1.5 rounded-lg flex items-center space-x-1 transition shadow-sm">
+                        <i class="fa-solid fa-trash-can"></i><span class="hidden md:inline">เริ่มใหม่ (ล้างทั้งหมด)</span>
+                    </button>
+                    <button onclick="triggerFileInput()" class="bg-yellow-400 hover:bg-yellow-300 text-brand-900 font-medium text-xs px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 transition shadow-sm">
+                        <i class="fa-solid fa-file-import"></i><span class="hidden sm:inline">ดึงข้อมูล JSON</span>
+                    </button>
+                    <input type="file" id="fileInput" accept=".json" class="hidden" onchange="handleFileSelect(event)">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="w-60 lg:w-64 bg-white border-r border-slate-200 flex-shrink-0 hidden md:flex flex-col justify-between shadow-sm no-print">
+            <div class="p-3 sm:p-4 space-y-1">
+                <div class="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">เมนูหลัก</div>
+                <button onclick="switchTab('tab-entrepreneurs')" id="nav-tab-entrepreneurs" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition text-brand-700 bg-brand-50 font-semibold border-l-4 border-brand-600">
+                    <i class="fa-solid fa-store w-5 text-center text-lg"></i><span>1. ผู้ประกอบการ</span>
+                </button>
+                <button onclick="switchTab('tab-sellingpoints')" id="nav-tab-sellingpoints" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100">
+                    <i class="fa-solid fa-map-location-dot w-5 text-center text-lg"></i><span>2. ข้อมูลจุดจำหน่าย</span>
+                </button>
+                <button onclick="switchTab('tab-dashboard')" id="nav-tab-dashboard" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100">
+                    <i class="fa-solid fa-chart-pie w-5 text-center text-lg"></i><span>3. สถานะโครงการ</span>
+                </button>
+                <button onclick="switchTab('tab-reports')" id="nav-tab-reports" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100">
+                    <i class="fa-solid fa-file-lines w-5 text-center text-lg"></i><span>4. รายงานสรุปภาพรวม</span>
+                </button>
+                <button onclick="switchTab('tab-financial-report')" id="nav-tab-financial-report" class="nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100">
+                    <i class="fa-solid fa-calculator w-5 text-center text-lg text-brand-600"></i><span>5. รายงานการจำหน่าย</span>
+                </button>
+            </div>
+            <div class="p-3 sm:p-4 border-t border-slate-100 bg-slate-50 space-y-2">
+                <button onclick="exportJSONData()" class="w-full text-xs bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-medium py-2 px-3 rounded-lg flex items-center justify-center space-x-2 shadow-sm">
+                    <i class="fa-solid fa-download text-brand-600"></i><span>สำรองข้อมูล JSON (พร้อมรูปภาพ)</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Mobile Bottom Nav -->
+        <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-40 flex justify-around py-2 px-1 no-print shadow-2xl">
+            <button onclick="switchTab('tab-entrepreneurs')" id="mnav-tab-entrepreneurs" class="flex flex-col items-center p-1 text-[10px] text-brand-600 font-bold"><i class="fa-solid fa-store text-sm mb-0.5"></i><span>ผู้ประกอบการ</span></button>
+            <button onclick="switchTab('tab-sellingpoints')" id="mnav-tab-sellingpoints" class="flex flex-col items-center p-1 text-[10px] text-slate-500"><i class="fa-solid fa-map-location-dot text-sm mb-0.5"></i><span>จุดจำหน่าย</span></button>
+            <button onclick="switchTab('tab-dashboard')" id="mnav-tab-dashboard" class="flex flex-col items-center p-1 text-[10px] text-slate-500"><i class="fa-solid fa-chart-pie text-sm mb-0.5"></i><span>สถานะ</span></button>
+            <button onclick="switchTab('tab-reports')" id="mnav-tab-reports" class="flex flex-col items-center p-1 text-[10px] text-slate-500"><i class="fa-solid fa-file-lines text-sm mb-0.5"></i><span>รายงาน</span></button>
+            <button onclick="switchTab('tab-financial-report')" id="mnav-tab-financial-report" class="flex flex-col items-center p-1 text-[10px] text-slate-500"><i class="fa-solid fa-calculator text-sm mb-0.5"></i><span>คำนวณการขาย</span></button>
+        </div>
+
+        <!-- Main Workspace Area -->
+        <main class="flex-1 overflow-y-auto p-3 sm:p-6 pb-24 md:pb-6 bg-slate-50" id="mainWorkspace">
+            
+            <!-- TAB 1: ข้อมูลผู้ประกอบการ -->
+            <section id="tab-entrepreneurs" class="tab-content space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-store text-brand-600"></i> ข้อมูลผู้ประกอบการ</h2>
+                        <p class="text-xs text-slate-500">บันทึกรายละเอียดร้านค้า บริษัท หรือผู้ผลิตที่เข้าร่วมโครงการ</p>
+                    </div>
+                    <button onclick="openEntrepreneurModal()" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-md transition">+ เพิ่มผู้ประกอบการ</button>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="p-3 border-b bg-slate-50"><input type="text" id="searchEntrepreneur" oninput="renderEntrepreneurTable()" placeholder="🔍 ค้นหาผู้ประกอบการ..." class="text-xs px-3 py-2 border rounded-lg w-full sm:w-64 bg-white"></div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase font-semibold border-b">
+                                <tr><th class="p-3">ลำดับ</th><th class="p-3">ชื่อผู้ประกอบการ</th><th class="p-3">ผู้ติดต่อ & เบอร์โทร</th><th class="p-3">ประเภทสินค้า</th><th class="p-3">ที่อยู่</th><th class="p-3 text-center">จัดการ</th></tr>
+                            </thead>
+                            <tbody id="entrepreneurTableBody" class="divide-y text-xs sm:text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: ข้อมูลจุดจำหน่าย -->
+            <section id="tab-sellingpoints" class="tab-content hidden space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-map-location-dot text-brand-600"></i> ข้อมูลและแผนที่จุดจำหน่าย (อัปโหลดรูปภาพได้ไม่จำกัด)</h2>
+                        <p class="text-xs text-slate-500">ปักหมุดตำแหน่ง เชื่อมโยงรายงาน และแนบรูปภาพหลักฐาน</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="openSellingPointModal()" class="bg-brand-600 text-white px-3.5 py-2 rounded-xl text-sm font-medium shadow">+ กรอกจุดจำหน่าย</button>
+                        <button onclick="openExcelImportModal()" class="bg-emerald-600 text-white px-3.5 py-2 rounded-xl text-sm font-medium shadow"><i class="fa-solid fa-file-excel mr-1"></i> นำเข้า Excel / CSV</button>
+                    </div>
+                </div>
+
+                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-3" id="mapSection">
+                    <div class="flex flex-wrap justify-between items-center text-xs gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-600">สัญลักษณ์หมุด: 🟢 ดำเนินการแล้ว | 🟠 ยังไม่ดำเนินการ</span>
+                            <span class="bg-amber-100 text-amber-900 border border-amber-300 font-bold px-2.5 py-1 rounded-full text-[11px] shadow-sm flex items-center gap-1">
+                                💡 คลิกบนแผนที่เพื่อสร้างหมุดใหม่ได้ทันที
+                            </span>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="setMapLayer('satellite')" id="btnLayerSatellite" class="px-2.5 py-1 rounded bg-white text-brand-700 font-semibold shadow-sm">ดาวเทียม</button>
+                            <button onclick="setMapLayer('terrain')" id="btnLayerTerrain" class="px-2.5 py-1 rounded text-slate-600">ภูมิประเทศ</button>
+                        </div>
+                    </div>
+                    <div class="relative w-full rounded-xl overflow-hidden border">
+                        <div id="map" class="w-full map-container z-10"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="p-3 border-b bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-2">
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <span class="font-bold text-slate-700 text-sm">รายการจุดจำหน่ายสินค้าทั้งหมด</span>
+                            <span id="spCountBadge" class="bg-slate-200 text-slate-700 px-2.5 py-0.5 rounded-full text-xs font-bold">รวม 0 จุด</span>
+                        </div>
+                        <input type="text" id="searchSellingPoint" oninput="renderSellingPointsTable()" placeholder="🔍 ค้นหาจุดจำหน่าย, ผู้ประกอบการ..." class="text-xs px-3 py-2 border rounded-lg w-full sm:w-72 bg-white">
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase font-semibold border-b">
+                                <tr>
+                                    <th class="p-3 sortable-header" onclick="sortSellingPointsTable('index')">ลำดับ <span id="sort-icon-index">↕</span></th>
+                                    <th class="p-3 sortable-header" onclick="sortSellingPointsTable('name')">จุดจำหน่าย <span id="sort-icon-name">↕</span></th>
+                                    <th class="p-3 sortable-header" onclick="sortSellingPointsTable('entrepreneur')">ผู้ประกอบการ <span id="sort-icon-entrepreneur">↕</span></th>
+                                    <th class="p-3 sortable-header" onclick="sortSellingPointsTable('datetime')">วันเวลา <span id="sort-icon-datetime">↕</span></th>
+                                    <th class="p-3 sortable-header" onclick="sortSellingPointsTable('lat')">พิกัด (LAT, LNG) <span id="sort-icon-lat">↕</span></th>
+                                    <th class="p-3 text-center">แผนที่</th>
+                                    <th class="p-3 sortable-header" onclick="sortSellingPointsTable('status')">สถานะ <span id="sort-icon-status">↕</span></th>
+                                    <th class="p-3 text-center">รูปภาพ (แนบได้ไม่จำกัด)</th>
+                                    <th class="p-3 text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sellingPointTableBody" class="divide-y text-xs sm:text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: สถานะโครงการ / Dashboard -->
+            <section id="tab-dashboard" class="tab-content hidden space-y-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-brand-600"></i> สถานะโครงการและกราฟวิเคราะห์ผลการลดค่าครองชีพ</h2>
+                        <p class="text-xs text-slate-500">สรุปผลการดำเนินงานและวิเคราะห์รอบการขายที่ช่วยลดค่าครองชีพประชาชนมากที่สุด / น้อยที่สุด</p>
+                    </div>
+                    <button onclick="refreshDashboard()" class="text-xs bg-slate-100 px-3 py-2 rounded-lg text-slate-700"><i class="fa-solid fa-rotate-right mr-1"></i> อัปเดต</button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="text-xs text-slate-500">จุดจำหน่ายรวม</div><div class="text-2xl font-bold text-slate-800" id="dashTotalPoints">0</div></div>
+                    <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="text-xs text-slate-500">ดำเนินการแล้ว</div><div class="text-2xl font-bold text-emerald-600" id="dashDonePoints">0</div></div>
+                    <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="text-xs text-slate-500">ยังไม่ดำเนินการ</div><div class="text-2xl font-bold text-amber-600" id="dashPendingPoints">0</div></div>
+                    <div class="bg-white p-4 rounded-xl border shadow-sm"><div class="text-xs text-slate-500">มูลค่าลดค่าครองชีพรวม</div><div class="text-xl font-bold text-brand-600" id="dashTotalCostLiving">0.00 บ.</div></div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl">
+                        <div class="text-xs font-bold text-emerald-800 uppercase flex items-center gap-1.5 mb-1"><i class="fa-solid fa-circle-arrow-up text-emerald-600"></i> จุดจำหน่ายที่ช่วยลดค่าครองชีพประชาชน "มากที่สุด"</div>
+                        <div class="text-sm font-bold text-emerald-900" id="maxCostLivingText">-</div>
+                    </div>
+                    <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl">
+                        <div class="text-xs font-bold text-amber-800 uppercase flex items-center gap-1.5 mb-1"><i class="fa-solid fa-circle-arrow-down text-amber-600"></i> จุดจำหน่ายที่ช่วยลดค่าครองชีพประชาชน "น้อยที่สุด"</div>
+                        <div class="text-sm font-bold text-amber-900" id="minCostLivingText">-</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white p-4 rounded-xl border shadow-sm"><h3 class="font-bold text-slate-700 text-sm mb-3">สัดส่วนสถานะโครงการ</h3><div class="relative h-60"><canvas id="statusChart"></canvas></div></div>
+                    <div class="bg-white p-4 rounded-xl border shadow-sm"><h3 class="font-bold text-slate-700 text-sm mb-3">กราฟเปรียบเทียบมูลค่าลดค่าครองชีพแต่ละจุดจำหน่าย</h3><div class="relative h-60"><canvas id="financialBarChart"></canvas></div></div>
+                </div>
+            </section>
+
+            <!-- TAB 4: รายงานสรุปภาพรวม -->
+            <section id="tab-reports" class="tab-content hidden space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-4 rounded-xl border shadow-sm no-print">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-file-lines text-brand-600"></i> รายงานสรุปเสนอผู้บริหาร</h2>
+                        <p class="text-xs text-slate-500">สรุปข้อมูลจุดจำหน่ายและผลการจำหน่ายในแต่ละครั้ง (รองรับการขึ้นหน้าอัตโนมัติหลายหน้า)</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="exportReportWordPortrait()" class="bg-blue-600 text-white px-3 py-2 rounded-xl text-xs sm:text-sm shadow flex items-center gap-1">📄 ส่งออก Word</button>
+                        <button onclick="openPdfPrintModal('tab-reports', 'portrait')" class="bg-brand-600 hover:bg-brand-700 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-print"></i> พิมพ์ / PDF (กำหนดหน้าและแนววาง)
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl report-document-container text-slate-800" id="reportDocument">
+                    <div class="border-b-2 border-brand-800 pb-4 mb-4 flex justify-between items-center">
+                        <div>
+                            <h1 class="text-lg font-bold text-brand-900">รายงานสรุปผลการดำเนินโครงการ"ไทยช่วยไทยลดค่าครองชีพ"</h1>
+                            <p class="text-xs text-slate-500">วันที่ออกรายงาน: <span id="reportDateText"></span></p>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                            <div class="bg-slate-50 p-2.5 rounded border">จุดทั้งหมด: <span id="repTotal" class="font-bold">0</span></div>
+                            <div class="bg-emerald-50 p-2.5 rounded border">สำเร็จ: <span id="repDone" class="font-bold text-emerald-700">0</span></div>
+                            <div class="bg-amber-50 p-2.5 rounded border">รอดำเนินการ: <span id="repPending" class="font-bold text-amber-700">0</span></div>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-xs uppercase mb-2">ตารางสรุปผลการจำหน่ายแยกตามแต่ละครั้ง / จุดจำหน่าย</h3>
+                            <table class="w-full text-xs text-left border-collapse border border-slate-300">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-700">
+                                        <th class="p-2 border border-slate-300 text-center w-12">ที่</th>
+                                        <th class="p-2 border border-slate-300">ครั้งที่จำหน่าย / สถานที่</th>
+                                        <th class="p-2 border border-slate-300 text-right w-32">มูลค่าการจำหน่าย (บ.)</th>
+                                        <th class="p-2 border border-slate-300 text-right w-36">ลดค่าครองชีพประชาชน (บ.)</th>
+                                        <th class="p-2 border border-slate-300 text-right w-32">ลดค่าครองชีพ(ร้อยละ)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportFinancialTableBody" class="divide-y divide-slate-200"></tbody>
+                            </table>
+                        </div>
+                        <div class="pt-8 grid grid-cols-2 gap-8 text-center text-xs text-slate-600" style="page-break-inside: avoid;">
+                            <div><div class="border-b border-dotted border-slate-400 w-40 mx-auto mb-2"></div><p>(..........................................................)</p><p class="font-medium mt-1">ผู้จัดทำรายงาน</p></div>
+                            <div><div class="border-b border-dotted border-slate-400 w-40 mx-auto mb-2"></div><p>(..........................................................)</p><p class="font-medium mt-1">ผู้บังคับบัญชา</p></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: รายงานการจำหน่าย (แนวนอน A4) -->
+            <section id="tab-financial-report" class="tab-content hidden space-y-6">
+                <div class="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-5 shadow-md flex flex-col md:flex-row justify-between items-center gap-4 no-print">
+                    <div class="w-full">
+                        <label class="block text-xs text-indigo-200 font-medium mb-1">เลือกครั้งที่จำหน่าย / รอบการขาย:</label>
+                        <select id="sessionSelect" onchange="changeSession()" class="bg-indigo-900 border border-indigo-400 text-white font-bold text-sm rounded-xl px-4 py-2 w-full md:w-96 focus:outline-none"></select>
+                    </div>
+                    <div class="flex gap-2 w-full md:w-auto justify-end">
+                        <button onclick="addNewSession()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow">➕ เพิ่มรอบใหม่</button>
+                        <button onclick="renameCurrentSession()" class="bg-amber-500 text-white px-3 py-2 rounded-xl text-xs font-semibold">✏️ เปลี่ยนชื่อ</button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border p-5 no-print grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">สถานที่จัดงาน / จุดจำหน่าย:</label>
+                        <input type="text" id="inputLocation" oninput="updateCurrentSessionHeader()" class="w-full border rounded-xl p-2.5 text-sm font-semibold bg-slate-50 text-slate-800" placeholder="ระบุสถานที่จัดงาน...">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">วันที่จัดงาน:</label>
+                        <input type="text" id="inputDate" oninput="updateCurrentSessionHeader()" class="w-full border rounded-xl p-2.5 text-sm font-semibold bg-slate-50 text-slate-800" placeholder="ระบุวันที่จัดงาน...">
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border p-6 no-print">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-base font-bold text-slate-800">📦 กรอกจำนวนสินค้าขายได้ (รอบการขายนี้)</h2>
+                        <button onclick="openMasterModal()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium">⚙️ จัดการสินค้าตั้งต้น</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead>
+                                <tr class="bg-slate-50 border-b text-slate-700">
+                                    <th class="p-3 w-12 text-center">ที่</th><th class="p-3">สินค้า</th><th class="p-3 w-28 text-center">หน่วย</th><th class="p-3 w-32 text-right">ราคาตลาด</th><th class="p-3 w-32 text-right">ราคาทุน</th><th class="p-3 w-32 text-right">ราคาธงฟ้า</th><th class="p-3 w-40 bg-blue-50 text-center">จำนวนขาย</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inputProductsBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border p-6 no-print">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-base font-bold text-slate-800">📋 ค่าบริหารจัดการโครงการ (ตั้งต้น 9 รายการ)</h2>
+                        <div class="flex gap-2">
+                            <button onclick="resetDefaultExpenses()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium">🔄 รีเซ็ต 9 รายการเดิม</button>
+                            <button onclick="openExpenseMasterModal()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium">⚙️ จัดการค่าใช้จ่ายตั้งต้น</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead>
+                                <tr class="bg-slate-50 border-b text-slate-700">
+                                    <th class="p-3 w-12 text-center">ที่</th>
+                                    <th class="p-3">รายละเอียดค่าใช้จ่าย</th>
+                                    <th class="p-3 w-44 text-right">จำนวนเงิน (บาท)</th>
+                                    <th class="p-3 w-24 text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inputExpensesBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3 flex justify-start">
+                        <button onclick="addExpenseItem()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-medium">+ เพิ่มรายการค่าใช้จ่าย</button>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 no-print">
+                    <button onclick="saveToLocalStorage(); showToast('บันทึกสำเร็จ','บันทึกข้อมูลเรียบร้อย');" class="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-medium shadow">💾 บันทึกข้อมูล</button>
+                </div>
+
+                <div class="space-y-4 pt-4 border-t">
+                    <div class="flex justify-between items-center no-print">
+                        <h3 class="font-bold text-slate-800">👁️ พรีวิวรายงานแนวนอน A4 (ตรงตามแบบราชการ 100%)</h3>
+                        <div class="flex gap-2">
+                            <button onclick="openPdfPrintModal('tab-financial-report', 'landscape')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm shadow flex items-center gap-1.5 font-medium">
+                                <i class="fa-solid fa-print"></i> พิมพ์ / PDF (กำหนดหน้าและแนววาง)
+                            </button>
+                            <button onclick="exportToWord()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm shadow">📄 ส่งออก Word</button>
+                        </div>
+                    </div>
+
+                    <div class="report-page-landscape" id="reportContent">
+                        <div class="w-full text-center mb-4">
+                            <h2 class="text-base font-bold text-black leading-tight" id="previewLocation">ณ .....</h2>
+                            <p class="text-sm font-bold text-black mt-1" id="previewDate">วันที่...</p>
+                        </div>
+
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 3%;">ที่</th><th style="width: 14%;">สินค้า</th><th style="width: 6%;">จำนวน</th><th style="width: 5%;">หน่วย</th><th style="width: 6%;">ราคาตลาด</th><th style="width: 6%;">ราคาทุน</th><th style="width: 6%;">ราคาธงฟ้า</th><th style="width: 6%;">ลดราคา(ทุน)</th><th style="width: 6%;">ลดค่าครองชีพ</th><th style="width: 5%;">ร้อยละ</th><th style="width: 7%;">ราคาชดเชย</th><th style="width: 8%;">มูลค่าจำหน่าย</th><th style="width: 8%;">มูลค่า(ตลาด)</th><th style="width: 14%;">ลดค่าครองชีพประชาชน</th>
+                                </tr>
+                            </thead>
+                            <tbody id="previewProductTableBody"></tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="10" class="text-right-custom font-bold">รวม</td>
+                                    <td id="sumCompensation" class="text-right-custom font-bold">0.00</td>
+                                    <td id="sumSales" class="text-right-custom font-bold">0.00</td>
+                                    <td id="sumMarketValue" class="text-right-custom font-bold">0.00</td>
+                                    <td id="sumCostLiving" class="text-right-custom font-bold">0.00</td>
+                                </tr>
+                                <tr><td colspan="10" class="text-right-custom font-bold">ค่าบริหารโครงการ</td><td id="sumManagementFee" class="text-right-custom font-bold">0.00</td><td colspan="3"></td></tr>
+                                <tr><td colspan="10" class="text-right-custom font-bold">รวมค่าชดเชยทั้งสิ้น</td><td id="sumTotalCompensation" class="text-right-custom font-bold">0.00</td><td colspan="3"></td></tr>
+                            </tfoot>
+                        </table>
+
+                        <div class="flex justify-between items-start mt-5 gap-4">
+                            <table class="report-table" style="width: 73%;">
+                                <thead><tr><th style="width: 6%;">ที่</th><th style="width: 70%;">ค่าบริหารจัดการโครงการ</th><th style="width: 24%;">จำนวนเงิน</th></tr></thead>
+                                <tbody id="previewExpenseTableBody"></tbody>
+                                <tfoot><tr><td colspan="2" class="text-right-custom font-bold">รวม</td><td id="sumExpenseTotal" class="text-right-custom font-bold">0.00</td></tr></tfoot>
+                            </table>
+                            <div class="w-[25%] flex flex-col items-end justify-center pt-8 pr-2">
+                                <div id="ratioDisplay" class="text-sm font-bold text-black border-b-2 border-slate-800 pb-0.5">0.00000000</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL 0: ตั้งค่าการพิมพ์ / ออก PDF -->
+    <div id="modalPdfPrintConfig" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4 no-print">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-100">
+            <div class="flex items-center justify-between border-b pb-3 mb-4">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-file-pdf text-red-600 text-lg"></i> ตั้งค่าการออกรายงาน PDF / พิมพ์
+                </h3>
+                <button onclick="closePdfPrintModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+            </div>
+            
+            <div class="space-y-4 text-xs sm:text-sm">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1.5">1. เลือกทิศทางหน้ากระดาษ (Orientation):</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="border-2 border-slate-200 p-3 rounded-xl flex items-center space-x-2 cursor-pointer hover:border-brand-500 transition has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50">
+                            <input type="radio" name="pdfOrientation" value="portrait" class="accent-brand-600">
+                            <div>
+                                <div class="font-bold text-slate-800"><i class="fa-solid fa-file mr-1"></i> แนวตั้ง</div>
+                                <div class="text-[10px] text-slate-500">Portrait</div>
+                            </div>
+                        </label>
+                        <label class="border-2 border-slate-200 p-3 rounded-xl flex items-center space-x-2 cursor-pointer hover:border-brand-500 transition has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50">
+                            <input type="radio" name="pdfOrientation" value="landscape" class="accent-brand-600">
+                            <div>
+                                <div class="font-bold text-slate-800"><i class="fa-solid fa-file rotate-90 mr-1"></i> แนวนอน</div>
+                                <div class="text-[10px] text-slate-500">Landscape</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1.5">2. ขนาดหน้ากระดาษ (Page Size):</label>
+                    <select id="pdfPageSize" class="w-full border-2 border-slate-200 rounded-xl p-2.5 bg-white font-medium text-slate-700 focus:border-brand-600 outline-none">
+                        <option value="A4" selected>A4 (210 x 297 mm)</option>
+                        <option value="A3">A3 (297 x 420 mm)</option>
+                        <option value="Letter">Letter (8.5 x 11 นิ้ว)</option>
+                        <option value="Legal">Legal (8.5 x 14 นิ้ว)</option>
+                    </select>
+                </div>
+
+                <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs space-y-1">
+                    <p class="font-bold flex items-center gap-1"><i class="fa-solid fa-circle-info text-blue-600"></i> คุณสมบัติอัตโนมัติ:</p>
+                    <p>✓ ตั้งชื่อไฟล์ตาม สถานที่ขาย_วันที่ อัตโนมัติเมื่อสั่งพิมพ์/บันทึก PDF</p>
+                    <p>✓ จัดวางกึ่งกลางหน้ากระดาษ สะอาด ไม่มีสีพื้นหลังและขอบเทา</p>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-5 border-t mt-5">
+                <button onclick="closePdfPrintModal()" class="px-4 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl">ยกเลิก</button>
+                <button onclick="executePdfPrint()" class="px-5 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md flex items-center gap-1.5">
+                    <i class="fa-solid fa-print"></i> ยืนยันการพิมพ์ / บันทึก PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 1: ผู้ประกอบการ -->
+    <div id="modalEntrepreneur" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5">
+            <h3 class="font-bold text-base mb-3 text-brand-800" id="modalEntTitle">เพิ่มผู้ประกอบการ</h3>
+            <form id="formEntrepreneur" onsubmit="saveEntrepreneur(event)" class="space-y-3">
+                <input type="hidden" id="entId">
+                <div><label class="block text-xs font-semibold mb-1">ชื่อผู้ประกอบการ *</label><input type="text" id="entName" required class="w-full text-sm px-3 py-2 border rounded-lg"></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block text-xs font-semibold mb-1">ผู้ติดต่อ</label><input type="text" id="entContact" class="w-full text-sm px-3 py-2 border rounded-lg"></div>
+                    <div><label class="block text-xs font-semibold mb-1">เบอร์โทร</label><input type="tel" id="entPhone" class="w-full text-sm px-3 py-2 border rounded-lg"></div>
+                </div>
+                <div><label class="block text-xs font-semibold mb-1">ประเภทสินค้า</label><input type="text" id="entCategory" class="w-full text-sm px-3 py-2 border rounded-lg"></div>
+                <div><label class="block text-xs font-semibold mb-1">ที่อยู่</label><textarea id="entAddress" rows="2" class="w-full text-sm px-3 py-2 border rounded-lg"></textarea></div>
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="closeEntrepreneurModal()" class="px-4 py-2 text-xs bg-slate-100 rounded-lg">ยกเลิก</button><button type="submit" class="px-4 py-2 text-xs text-white bg-brand-600 rounded-lg">บันทึก</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: จุดจำหน่าย -->
+    <div id="modalSellingPoint" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 max-h-[90vh] overflow-y-auto">
+            <h3 class="font-bold text-base mb-3 text-brand-800" id="modalSpTitle">เพิ่มจุดจำหน่าย</h3>
+            <form id="formSellingPoint" onsubmit="saveSellingPoint(event)" class="space-y-3">
+                <input type="hidden" id="spId">
+                <div><label class="block text-xs font-semibold mb-1">ชื่อจุดจำหน่าย / สถานที่ *</label><input type="text" id="spName" required class="w-full text-sm px-3 py-2 border rounded-lg"></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block text-xs font-semibold mb-1">ผู้ประกอบการ</label><select id="spEntrepreneurId" class="w-full text-sm px-3 py-2 border rounded-lg"><option value="">-- เลือก --</option></select></div>
+                    <div><label class="block text-xs font-semibold mb-1">วันเวลา</label><input type="datetime-local" id="spDatetime" required class="w-full text-sm px-3 py-2 border rounded-lg"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block text-xs font-semibold mb-1">Latitude</label><input type="number" step="any" id="spLat" required class="w-full text-sm px-3 py-2 border rounded-lg"></div>
+                    <div><label class="block text-xs font-semibold mb-1">Longitude</label><input type="number" step="any" id="spLng" required class="w-full text-sm px-3 py-2 border rounded-lg"></div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1">สถานะ</label>
+                    <div class="flex gap-4 text-xs">
+                        <label><input type="radio" name="spStatus" value="ดำเนินการแล้ว"> ดำเนินการแล้ว</label>
+                        <label><input type="radio" name="spStatus" value="ยังไม่ดำเนินการ" checked> ยังไม่ดำเนินการ</label>
+                    </div>
+                </div>
+                <div><label class="block text-xs font-semibold mb-1">แนบรูปภาพหลักฐาน (ไม่จำกัดจำนวน)</label><input type="file" id="spImagesInput" multiple accept="image/*" class="w-full text-xs border rounded-lg p-2 bg-slate-50" onchange="previewImages(event)"></div>
+                <div id="imagePreviewContainer" class="flex flex-wrap gap-2 mt-2"></div>
+                <div><label class="block text-xs font-semibold mb-1">หมายเหตุ</label><textarea id="spNote" rows="2" class="w-full text-sm px-3 py-2 border rounded-lg"></textarea></div>
+                <div class="flex justify-end gap-2 pt-2"><button type="button" onclick="closeSellingPointModal()" class="px-4 py-2 text-xs bg-slate-100 rounded-lg">ยกเลิก</button><button type="submit" class="px-4 py-2 text-xs text-white bg-brand-600 rounded-lg">บันทึก</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: จัดการสินค้าตั้งต้น -->
+    <div id="masterModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h2 class="text-lg font-bold mb-4">⚙️ จัดการรายการสินค้าตั้งต้น</h2>
+            <table class="w-full text-left text-sm mb-4">
+                <thead><tr class="bg-slate-100"><th class="p-2">ชื่อสินค้า</th><th class="p-2">หน่วย</th><th class="p-2">ราคาตลาด</th><th class="p-2">ราคาทุน</th><th class="p-2">ราคาธงฟ้า</th><th class="p-2">ลบ</th></tr></thead>
+                <tbody id="masterTableBody"></tbody>
+            </table>
+            <button onclick="addNewMasterProductRow()" class="bg-green-600 text-white px-3 py-1.5 rounded text-xs mb-4">+ เพิ่มสินค้า</button>
+            <div class="flex justify-end gap-2"><button onclick="closeMasterModal()" class="px-4 py-2 bg-slate-200 rounded text-xs">ปิด</button><button onclick="saveMasterCatalog()" class="px-4 py-2 bg-blue-600 text-white rounded text-xs">บันทึก</button></div>
+        </div>
+    </div>
+
+    <!-- MODAL 3.2: จัดการค่าใช้จ่ายตั้งต้น -->
+    <div id="expenseMasterModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h2 class="text-lg font-bold mb-4">⚙️ จัดการรายการค่าบริหารจัดการตั้งต้น</h2>
+            <table class="w-full text-left text-sm mb-4">
+                <thead><tr class="bg-slate-100"><th class="p-2">รายละเอียดค่าใช้จ่าย</th><th class="p-2 w-36 text-right">จำนวนเงิน (บาท)</th><th class="p-2 w-16 text-center">ลบ</th></tr></thead>
+                <tbody id="expenseMasterTableBody"></tbody>
+            </table>
+            <button onclick="addNewExpenseMasterRow()" class="bg-green-600 text-white px-3 py-1.5 rounded text-xs mb-4">+ เพิ่มรายการ</button>
+            <div class="flex justify-end gap-2"><button onclick="closeExpenseMasterModal()" class="px-4 py-2 bg-slate-200 rounded text-xs">ปิด</button><button onclick="saveExpenseMasterCatalog()" class="px-4 py-2 bg-blue-600 text-white rounded text-xs">บันทึก</button></div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: นำเข้า Excel / CSV -->
+    <div id="modalExcelImport" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-sm text-emerald-800"><i class="fa-solid fa-file-excel mr-1"></i> นำเข้าข้อมูลจุดจำหน่ายผ่าน Excel</h3>
+                <button onclick="closeExcelImportModal()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+            </div>
+            <p class="text-xs text-slate-600">รองรับไฟล์ Excel (.xlsx) หรือ CSV ที่มีหัวคอลัมน์: <b>Name</b>, <b>Latitude</b>, <b>Longitude</b></p>
+            <div class="border-2 border-dashed border-emerald-300 rounded-xl p-6 text-center hover:bg-emerald-50 cursor-pointer" onclick="document.getElementById('excelFileInput').click()">
+                <i class="fa-solid fa-cloud-arrow-up text-3xl text-emerald-600 mb-2"></i>
+                <p class="text-xs font-semibold text-slate-700">คลิกเพื่อเลือกไฟล์ Excel / CSV</p>
+                <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden" onchange="processExcelImport(event)">
+            </div>
+            <div class="flex justify-between items-center pt-2">
+                <button onclick="downloadExcelTemplate()" class="text-xs text-emerald-700 hover:underline font-medium"><i class="fa-solid fa-download mr-1"></i> ดาวน์โหลดไฟล์แม่แบบ</button>
+                <button onclick="closeExcelImportModal()" class="px-3 py-1.5 bg-slate-100 rounded text-xs">ปิด</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: แสดงรูปภาพขนาดใหญ่ -->
+    <div id="modalImageViewer" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="relative max-w-4xl max-h-[90vh] bg-white p-2 rounded-2xl shadow-2xl flex flex-col items-center">
+            <button onclick="closeImageViewer()" class="absolute -top-3 -right-3 bg-red-600 text-white w-8 h-8 rounded-full font-bold shadow-lg flex items-center justify-center">✕</button>
+            <img id="viewerImage" src="" class="max-h-[80vh] object-contain rounded-lg">
+        </div>
+    </div>
+
+    <script>
+        const default9Expenses = [
+            { name: "ค่าเช่ารถบรรทุกสินค้า พร้อมพนักงานขับรถ และน้ำมันเชื้อเพลิง จำนวน 2 วัน เป็นเงิน", amount: 0 },
+            { name: "ค่าจ้างพนักงานยกของ จำนวน 2 คน ๆ ละ 350 บาท จำนวน 2 วัน (350 x 2 x 2)", amount: 0 },
+            { name: "ค่าจ้างพนักงานขาย จำนวน 2 คน ๆ ละ 350 บาท จำนวน 2 วัน (350 x 2 x 2)", amount: 0 },
+            { name: "ค่าป้ายไวนิลโครงการ ขนาด 1.2 x 2.5 เมตร เป็นเงิน", amount: 0 },
+            { name: "ค่าป้ายราคา เป็นเงิน", amount: 0 },
+            { name: "ค่าป้ายจำนวน", amount: 0 },
+            { name: "ค่าถุงบรรจุสินค้า ขนาด 9 x 18 จำนวน 20 แพ็ค ๆ ละ 50 บาท จำนวน 2 วัน เป็นเงิน", amount: 0 },
+            { name: "ค่าเต็นท์ขนาด 4 x 8 เมตร จำนวน 1 หลัง", amount: 0 },
+            { name: "ค่าโต๊ะพร้อมผ้าปูโต๊ะ จำนวน 8 ชุด ๆ ละ 70 บาท", amount: 0 }
+        ];
+
+        let initialDefaultDb = {
+            entrepreneurs: [
+                { id: 'ent-1', name: 'บริษัท สินค้าไทยธงฟ้า จำกัด', contact: 'คุณสมชาย', phone: '081-999-8888', category: 'เครื่องอุปโภคบริโภค', address: 'กรุงเทพฯ' }
+            ],
+            sellingPoints: [
+                { id: "sp-excel-1", name: "โรงจอดรถ อบต. เกศตรี", entrepreneurId: "", datetime: "2026-10-14T09:00", lat: 6.6945726, lng: 100.0799539, status: "ดำเนินการแล้ว", images: [], note: "นำเข้าจากระบบ" }
+            ],
+            masterProducts: [
+                { id: 1, name: "ไข่ไก่ เบอร์ 3", unit: "แผง", marketPrice: 135.00, costPrice: 132.00, thongfaPrice: 85.00 },
+                { id: 2, name: "ข้าวสาร", unit: "ถุง", marketPrice: 149.00, costPrice: 139.00, thongfaPrice: 100.00 },
+                { id: 3, name: "น้ำมัน", unit: "ขวด", marketPrice: 52.00, costPrice: 51.00, thongfaPrice: 35.00 }
+            ],
+            masterExpenses: JSON.parse(JSON.stringify(default9Expenses)),
+            activeSessionId: "",
+            sessions: []
+        };
+
+        let db = { entrepreneurs: [], sellingPoints: [], masterProducts: JSON.parse(JSON.stringify(initialDefaultDb.masterProducts)), masterExpenses: JSON.parse(JSON.stringify(initialDefaultDb.masterExpenses)), activeSessionId: "", sessions: [] };
+        let currentTempImages = [];
+        let map = null;
+        let mapMarkers = [];
+        let mapLayers = {};
+        let statusChartInstance = null;
+        let financialBarChartInstance = null;
+
+        let currentSortColumn = 'index';
+        let currentSortDirection = 'asc';
+
+        let printTargetTab = 'tab-reports';
+
+        function sanitizeLocationName(str) {
+            if (!str) return 'จุดจำหน่าย';
+            return str.replace(/^ธงฟ้า\s*ณ\s*/i, '').replace(/^ณ\s*/i, '').trim();
+        }
+
+        window.onload = function() {
+            loadFromLocalStorage();
+            if(db.sessions.length === 0 && db.sellingPoints.length > 0) {
+                db.sellingPoints.forEach(sp => {
+                    db.sessions.push({
+                        id: 'session_' + sp.id,
+                        sellingPointId: sp.id,
+                        title: sp.name,
+                        location: sanitizeLocationName(sp.name),
+                        date: sp.datetime ? new Date(sp.datetime).toLocaleDateString('th-TH') : '',
+                        salesQuantities: { "1": 100, "2": 200, "3": 150 },
+                        expenses: JSON.parse(JSON.stringify(db.masterExpenses))
+                    });
+                });
+                if(db.sessions.length > 0) db.activeSessionId = db.sessions[0].id;
+                saveToLocalStorage();
+            } else if (db.sessions.length > 0) {
+                db.sessions.forEach(s => {
+                    if (s.location) s.location = sanitizeLocationName(s.location);
+                });
+                saveToLocalStorage();
+            }
+
+            initMap();
+            renderEntrepreneurTable();
+            renderSellingPointsTable();
+            updateDashboardMetrics();
+            initSessionSelect();
+            loadCurrentSessionToForm();
+            renderReport();
+            switchTab('tab-entrepreneurs');
+        };
+
+        function showToast(title, message) {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastTitle').innerText = title;
+            document.getElementById('toastMessage').innerText = message;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            setTimeout(() => toast.classList.add('opacity-0', 'pointer-events-none'), 3000);
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.className = "nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100";
+            });
+
+            const activeNavBtn = document.getElementById('nav-' + tabId);
+            if (activeNavBtn) {
+                activeNavBtn.className = "nav-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-bold transition text-brand-700 bg-brand-50 border-l-4 border-brand-600 shadow-sm";
+            }
+
+            if (tabId === 'tab-sellingpoints' && map) setTimeout(() => map.invalidateSize(), 200);
+            if (tabId === 'tab-dashboard') renderDashboardCharts();
+            if (tabId === 'tab-reports') renderReportTable();
+            if (tabId === 'tab-financial-report') renderReport();
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('blue_flag_integrated_db', JSON.stringify(db));
+        }
+
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('blue_flag_integrated_db');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    db.entrepreneurs = parsed.entrepreneurs || [];
+                    db.sellingPoints = parsed.sellingPoints || [];
+                    db.masterProducts = parsed.masterProducts || JSON.parse(JSON.stringify(initialDefaultDb.masterProducts));
+                    db.masterExpenses = parsed.masterExpenses || JSON.parse(JSON.stringify(default9Expenses));
+                    db.sessions = parsed.sessions || [];
+                    db.activeSessionId = parsed.activeSessionId || "";
+                } catch(e) {
+                    db = JSON.parse(JSON.stringify(initialDefaultDb));
+                }
+            } else {
+                db = JSON.parse(JSON.stringify(initialDefaultDb));
+            }
+        }
+
+        function clearAllData() {
+            if (confirm("คุณต้องการล้างข้อมูลทั้งหมดในระบบเพื่อเริ่มใหม่ทั้งหมดใช่หรือไม่?")) {
+                localStorage.removeItem('blue_flag_integrated_db');
+                db = {
+                    entrepreneurs: [],
+                    sellingPoints: [],
+                    masterProducts: [],
+                    masterExpenses: [],
+                    activeSessionId: "",
+                    sessions: []
+                };
+                location.reload();
+            }
+        }
+
+        function triggerFileInput() { document.getElementById('fileInput').click(); }
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const imported = JSON.parse(evt.target.result);
+                    db.sellingPoints = imported.sellingPoints || [];
+                    db.entrepreneurs = imported.entrepreneurs || [];
+                    db.masterProducts = imported.masterProducts || db.masterProducts;
+                    db.masterExpenses = imported.masterExpenses || db.masterExpenses;
+                    db.sessions = imported.sessions || [];
+
+                    db.sessions.forEach(s => {
+                        if (s.location) s.location = sanitizeLocationName(s.location);
+                    });
+                    
+                    if(db.sessions.length === 0 && db.sellingPoints.length > 0) {
+                        db.sellingPoints.forEach(sp => {
+                            db.sessions.push({
+                                id: 'session_' + sp.id,
+                                sellingPointId: sp.id,
+                                title: sp.name,
+                                location: sanitizeLocationName(sp.name),
+                                date: sp.datetime ? new Date(sp.datetime).toLocaleDateString('th-TH') : '',
+                                salesQuantities: { "1": 100, "2": 200, "3": 150 },
+                                expenses: JSON.parse(JSON.stringify(db.masterExpenses))
+                            });
+                        });
+                    }
+
+                    if(db.sessions.length > 0) db.activeSessionId = db.sessions[0].id;
+
+                    saveToLocalStorage();
+                    location.reload();
+                } catch(err) { alert('ไฟล์ JSON ไม่ถูกต้อง'); }
+            };
+            reader.readAsText(file);
+        }
+
+        function exportJSONData() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            
+            const timestamp = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+            const filename = `blue_flag_backup_${timestamp}.json`;
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+            const a = document.createElement('a');
+            a.href = dataStr; 
+            a.download = filename;
+            document.body.appendChild(a); 
+            a.click(); 
+            a.remove();
+            showToast('สำรองข้อมูลสำเร็จ', `บันทึกไฟล์ ${filename} เรียบร้อยแล้ว`);
+        }
+
+        function openEntrepreneurModal(id=null) {
+            document.getElementById('formEntrepreneur').reset();
+            document.getElementById('entId').value = '';
+            if (id) {
+                const ent = db.entrepreneurs.find(e => e.id === id);
+                if (ent) {
+                    document.getElementById('entId').value = ent.id;
+                    document.getElementById('entName').value = ent.name || '';
+                    document.getElementById('entContact').value = ent.contact || '';
+                    document.getElementById('entPhone').value = ent.phone || '';
+                    document.getElementById('entCategory').value = ent.category || '';
+                    document.getElementById('entAddress').value = ent.address || '';
+                }
+            }
+            document.getElementById('modalEntrepreneur').classList.remove('hidden');
+        }
+        function closeEntrepreneurModal() { document.getElementById('modalEntrepreneur').classList.add('hidden'); }
+        function saveEntrepreneur(e) {
+            e.preventDefault();
+            const id = document.getElementById('entId').value || 'ent-' + Date.now();
+            const name = document.getElementById('entName').value.trim();
+            const obj = { id, name, contact: document.getElementById('entContact').value, phone: document.getElementById('entPhone').value, category: document.getElementById('entCategory').value, address: document.getElementById('entAddress').value };
+            const idx = db.entrepreneurs.findIndex(x => x.id === id);
+            if (idx > -1) db.entrepreneurs[idx] = obj; else db.entrepreneurs.push(obj);
+            saveToLocalStorage(); renderEntrepreneurTable(); closeEntrepreneurModal();
+            showToast('สำเร็จ', 'บันทึกผู้ประกอบการเรียบร้อย');
+        }
+
+        function deleteEntrepreneur(id) {
+            if (confirm("คุณต้องการลบผู้ประกอบการรายนี้ใช่หรือไม่?")) {
+                db.entrepreneurs = db.entrepreneurs.filter(e => e.id !== id);
+                saveToLocalStorage();
+                renderEntrepreneurTable();
+                showToast('สำเร็จ', 'ลบผู้ประกอบการเรียบร้อยแล้ว');
+            }
+        }
+
+        function renderEntrepreneurTable() {
+            const tbody = document.getElementById('entrepreneurTableBody');
+            tbody.innerHTML = db.entrepreneurs.length ? db.entrepreneurs.map((e, i) => `
+                <tr class="hover:bg-slate-50">
+                    <td class="p-3">${i+1}</td><td class="p-3 font-semibold">${e.name}</td><td class="p-3">${e.contact || '-'}<br>${e.phone || ''}</td>
+                    <td class="p-3">${e.category || '-'}</td><td class="p-3">${e.address || '-'}</td>
+                    <td class="p-3 text-center space-x-2">
+                        <button onclick="openEntrepreneurModal('${e.id}')" class="text-blue-600 hover:text-blue-800 p-1" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteEntrepreneur('${e.id}')" class="text-red-600 hover:text-red-800 p-1" title="ลบ"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                </tr>
+            `).join('') : `<tr><td colspan="6" class="text-center py-4 text-slate-400">ไม่มีข้อมูล</td></tr>`;
+            
+            const sel = document.getElementById('spEntrepreneurId');
+            if(sel) sel.innerHTML = '<option value="">-- เลือก --</option>' + db.entrepreneurs.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+        }
+
+        function initMap() {
+            if (map) return;
+            map = L.map('map').setView([6.78, 100.08], 10);
+            mapLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 });
+            mapLayers.terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17 });
+            mapLayers.satellite.addTo(map);
+
+            map.on('click', function(e) {
+                const lat = parseFloat(e.latlng.lat.toFixed(6));
+                const lng = parseFloat(e.latlng.lng.toFixed(6));
+                openSellingPointModal(null, lat, lng);
+            });
+
+            renderMapMarkers();
+        }
+        function setMapLayer(name) {
+            Object.values(mapLayers).forEach(l => map.removeLayer(l));
+            mapLayers[name].addTo(map);
+        }
+
+        function jumpToMapAndFocus(lat, lng) {
+            const mapSec = document.getElementById('mapSection');
+            if (mapSec) {
+                mapSec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            if (map) {
+                map.setView([lat, lng], 16, { animate: true });
+                mapMarkers.forEach(marker => {
+                    const pos = marker.getLatLng();
+                    if (Math.abs(pos.lat - lat) < 0.00001 && Math.abs(pos.lng - lng) < 0.00001) {
+                        marker.openPopup();
+                    }
+                });
+            }
+        }
+
+        function renderMapMarkers() {
+            if (!map) return;
+            mapMarkers.forEach(m => map.removeLayer(m));
+            mapMarkers = [];
+            db.sellingPoints.forEach(sp => {
+                const isDone = sp.status === 'ดำเนินการแล้ว';
+                const icon = L.divIcon({
+                    className: 'custom-pin-marker',
+                    html: `<div class="pin-wrapper"><div class="pin-body ${isDone ? 'done':'pending'}"></div><i class="fa-solid ${isDone ? 'fa-check':'fa-clock'} pin-icon"></i></div>`,
+                    iconSize: [32, 42], iconAnchor: [16, 42]
+                });
+                const marker = L.marker([sp.lat, sp.lng], { icon }).addTo(map);
+                const ent = db.entrepreneurs.find(e => e.id === sp.entrepreneurId);
+                
+                const matchingSession = db.sessions.find(s => s.sellingPointId === sp.id || s.title === sp.name);
+                let sessionCostLiving = 0, sessionComp = 0, sessionSales = 0;
+                if (matchingSession) {
+                    db.masterProducts.forEach(p => {
+                        let qty = matchingSession.salesQuantities[p.id] || 0;
+                        sessionCostLiving += (p.marketPrice - p.thongfaPrice) * qty;
+                        sessionComp += (p.costPrice - p.thongfaPrice) * qty;
+                        sessionSales += p.thongfaPrice * qty;
+                    });
+                }
+
+                marker.bindPopup(`
+                    <div class="p-1 font-sans text-xs">
+                        <span class="px-2 py-0.5 rounded font-bold ${isDone?'bg-emerald-100 text-emerald-800':'bg-amber-100 text-amber-800'}">${sp.status}</span>
+                        <h4 class="font-bold text-sm mt-1">${sp.name}</h4>
+                        <p class="text-slate-500"><i class="fa-solid fa-store mr-1"></i>${ent ? ent.name : '-'}</p>
+                        <p class="text-slate-500"><i class="fa-regular fa-clock mr-1"></i>${sp.datetime || '-'}</p>
+                        <div class="mt-2 pt-2 border-t space-y-1 text-slate-700">
+                            <div><b>ราคาชดเชยรวม:</b> ${sessionComp.toLocaleString('th-TH', {minimumFractionDigits:2})} บ.</div>
+                            <div><b>มูลค่าการจำหน่าย:</b> ${sessionSales.toLocaleString('th-TH', {minimumFractionDigits:2})} บ.</div>
+                            <div class="font-semibold text-brand-700"><b>ลดค่าครองชีพประชาชน:</b> ${sessionCostLiving.toLocaleString('th-TH', {minimumFractionDigits:2})} บ.</div>
+                        </div>
+                        <div class="mt-2 pt-2 border-t text-center">
+                            <a href="https://www.google.com/maps/search/?api=1&query=${sp.lat},${sp.lng}" target="_blank" class="inline-block bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-blue-700">🗺️ เปิด Google Maps</a>
+                        </div>
+                    </div>
+                `);
+                mapMarkers.push(marker);
+            });
+        }
+
+        function previewImages(event) {
+            const files = event.target.files;
+            if (!files) return;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentTempImages.push(e.target.result);
+                    renderImagePreviews();
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function renderImagePreviews() {
+            const container = document.getElementById('imagePreviewContainer');
+            container.innerHTML = currentTempImages.map((imgSrc, index) => `
+                <div class="relative w-16 h-16 border rounded-lg overflow-hidden shadow-sm group">
+                    <img src="${imgSrc}" class="w-full h-full object-cover">
+                    <button type="button" onclick="removeTempImage(${index})" class="absolute top-0 right-0 bg-red-600 text-white text-[10px] w-5 h-5 flex items-center justify-center font-bold">✕</button>
+                </div>
+            `).join('');
+        }
+
+        function removeTempImage(index) {
+            currentTempImages.splice(index, 1);
+            renderImagePreviews();
+        }
+
+        function openImageViewer(src) {
+            document.getElementById('viewerImage').src = src;
+            document.getElementById('modalImageViewer').classList.remove('hidden');
+        }
+        function closeImageViewer() {
+            document.getElementById('modalImageViewer').classList.add('hidden');
+        }
+
+        function openSellingPointModal(id=null, clickLat=null, clickLng=null) {
+            document.getElementById('formSellingPoint').reset();
+            document.getElementById('spId').value = '';
+            currentTempImages = [];
+            document.getElementById('imagePreviewContainer').innerHTML = '';
+
+            if(id) {
+                const sp = db.sellingPoints.find(x => x.id === id);
+                if(sp) {
+                    document.getElementById('spId').value = sp.id;
+                    document.getElementById('spName').value = sp.name;
+                    document.getElementById('spEntrepreneurId').value = sp.entrepreneurId;
+                    document.getElementById('spDatetime').value = sp.datetime;
+                    document.getElementById('spLat').value = sp.lat;
+                    document.getElementById('spLng').value = sp.lng;
+                    document.getElementById('spNote').value = sp.note || '';
+                    currentTempImages = sp.images ? [...sp.images] : [];
+                    renderImagePreviews();
+                }
+            } else if (clickLat !== null && clickLng !== null) {
+                document.getElementById('spLat').value = clickLat;
+                document.getElementById('spLng').value = clickLng;
+                document.getElementById('spName').value = `จุดจำหน่ายใหม่ (${clickLat}, ${clickLng})`;
+                const now = new Date();
+                const isoStr = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                document.getElementById('spDatetime').value = isoStr;
+            } else {
+                document.getElementById('spLat').value = 6.78;
+                document.getElementById('spLng').value = 100.08;
+            }
+            document.getElementById('modalSellingPoint').classList.remove('hidden');
+        }
+        
+        // แก้ไขปุ่มยกเลิกของจุดจำหน่ายให้เรียกฟังก์ชันปิด Modal นี้โดยเฉพาะ
+        function closeSellingPointModal() { 
+            document.getElementById('modalSellingPoint').classList.add('hidden'); 
+            document.getElementById('formSellingPoint').reset();
+            currentTempImages = [];
+            document.getElementById('imagePreviewContainer').innerHTML = '';
+        }
+        
+        function saveSellingPoint(e) {
+            e.preventDefault();
+            const id = document.getElementById('spId').value || 'sp-' + Date.now();
+            const name = document.getElementById('spName').value;
+            const obj = {
+                id, name,
+                entrepreneurId: document.getElementById('spEntrepreneurId').value,
+                datetime: document.getElementById('spDatetime').value,
+                lat: parseFloat(document.getElementById('spLat').value),
+                lng: parseFloat(document.getElementById('spLng').value),
+                status: document.querySelector('input[name="spStatus"]:checked').value,
+                images: [...currentTempImages],
+                note: document.getElementById('spNote').value
+            };
+            const idx = db.sellingPoints.findIndex(x => x.id === id);
+            if (idx > -1) db.sellingPoints[idx] = obj; else db.sellingPoints.push(obj);
+            
+            if (!db.sessions.some(s => s.sellingPointId === id || s.title === name)) {
+                db.sessions.push({
+                    id: 'session_' + id,
+                    sellingPointId: id,
+                    title: name,
+                    location: sanitizeLocationName(name),
+                    date: obj.datetime ? obj.datetime.split('T')[0] : '',
+                    salesQuantities: { "1": 100, "2": 200, "3": 150 },
+                    expenses: JSON.parse(JSON.stringify(db.masterExpenses))
+                });
+            }
+
+            saveToLocalStorage(); renderSellingPointsTable(); renderMapMarkers(); closeSellingPointModal(); initSessionSelect();
+            showToast('สำเร็จ', 'บันทึกจุดจำหน่ายและรูปภาพเรียบร้อย');
+        }
+
+        function deleteSellingPoint(id) {
+            if (confirm("คุณต้องการลบจุดจำหน่ายนี้ใช่หรือไม่?")) {
+                db.sellingPoints = db.sellingPoints.filter(sp => sp.id !== id);
+                db.sessions = db.sessions.filter(s => s.sellingPointId !== id);
+                saveToLocalStorage();
+                renderSellingPointsTable();
+                renderMapMarkers();
+                initSessionSelect();
+                showToast('สำเร็จ', 'ลบจุดจำหน่ายเรียบร้อยแล้ว');
+            }
+        }
+
+        function sortSellingPointsTable(column) {
+            if (currentSortColumn === column) {
+                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortColumn = column;
+                currentSortDirection = 'asc';
+            }
+            renderSellingPointsTable();
+        }
+
+        function renderSellingPointsTable() {
+            const searchInput = document.getElementById('searchSellingPoint');
+            const searchKeyword = searchInput ? searchInput.value.toLowerCase() : '';
+            
+            let filteredPoints = db.sellingPoints.map((sp, index) => ({ ...sp, originalIndex: index + 1 })).filter(sp => {
+                const ent = db.entrepreneurs.find(e => e.id === sp.entrepreneurId);
+                const entName = ent ? ent.name.toLowerCase() : '';
+                return sp.name.toLowerCase().includes(searchKeyword) || entName.includes(searchKeyword);
+            });
+
+            filteredPoints.sort((a, b) => {
+                let valA, valB;
+                const entA = db.entrepreneurs.find(e => e.id === a.entrepreneurId)?.name || '';
+                const entB = db.entrepreneurs.find(e => e.id === b.entrepreneurId)?.name || '';
+
+                switch (currentSortColumn) {
+                    case 'index': valA = a.originalIndex; valB = b.originalIndex; break;
+                    case 'name': valA = a.name; valB = b.name; break;
+                    case 'entrepreneur': valA = entA; valB = entB; break;
+                    case 'datetime': valA = a.datetime || ''; valB = b.datetime || ''; break;
+                    case 'lat': valA = a.lat; valB = b.lat; break;
+                    case 'status': valA = a.status; valB = b.status; break;
+                    default: valA = a.originalIndex; valB = b.originalIndex;
+                }
+
+                if (typeof valA === 'string') {
+                    return currentSortDirection === 'asc' ? valA.localeCompare(valB, 'th') : valB.localeCompare(valA, 'th');
+                } else {
+                    return currentSortDirection === 'asc' ? valA - valB : valB - valA;
+                }
+            });
+
+            const tbody = document.getElementById('sellingPointTableBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = filteredPoints.length ? filteredPoints.map((sp, i) => {
+                const ent = db.entrepreneurs.find(e => e.id === sp.entrepreneurId);
+                const isDone = sp.status === 'ดำเนินการแล้ว';
+                
+                let formattedDate = '-';
+                if (sp.datetime) {
+                    const dt = new Date(sp.datetime);
+                    if (!isNaN(dt)) {
+                        const day = String(dt.getDate()).padStart(2, '0');
+                        const month = String(dt.getMonth() + 1).padStart(2, '0');
+                        const year = dt.getFullYear() + 543;
+                        const time = dt.toTimeString().split(' ')[0];
+                        formattedDate = `${day}/${month}/${year}<br>${time}`;
+                    } else {
+                        formattedDate = sp.datetime;
+                    }
+                }
+
+                let imageHtml = '<span class="text-slate-400">ไม่มีรูปภาพ</span>';
+                if (sp.images && sp.images.length > 0) {
+                    imageHtml = `<div class="flex items-center justify-center gap-1 flex-wrap">` + sp.images.map(img => `
+                        <img src="${img}" onclick="openImageViewer('${img}')" class="w-10 h-10 object-cover rounded border cursor-pointer hover:opacity-80 shadow-sm">
+                    `).join('') + `</div>`;
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-semibold text-center">${sp.originalIndex}</td>
+                        <td class="p-3 font-semibold">${sp.name}</td>
+                        <td class="p-3">${ent ? ent.name : '-'}</td>
+                        <td class="p-3">${formattedDate}</td>
+                        <td class="p-3 font-mono">${sp.lat},<br>${sp.lng}</td>
+                        <td class="p-3 text-center">
+                            <button onclick="jumpToMapAndFocus(${sp.lat}, ${sp.lng})" class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs px-2.5 py-1 rounded-lg border border-blue-200 transition shadow-sm cursor-pointer">
+                                <i class="fa-solid fa-location-dot text-red-500"></i> หมุด
+                            </button>
+                        </td>
+                        <td class="p-3"><span class="px-2.5 py-1 rounded-lg text-[11px] font-semibold ${isDone?'bg-emerald-100 text-emerald-800':'bg-amber-100 text-amber-800'}">${sp.status}</span></td>
+                        <td class="p-3 text-center">${imageHtml}</td>
+                        <td class="p-3 text-center space-x-2">
+                            <button onclick="openSellingPointModal('${sp.id}')" class="text-blue-600 hover:text-blue-800 p-1" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteSellingPoint('${sp.id}')" class="text-red-600 hover:text-red-800 p-1" title="ลบ"><i class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }).join('') : `<tr><td colspan="9" class="text-center py-4 text-slate-400">ไม่มีข้อมูลจุดจำหน่าย</td></tr>`;
+            
+            const badge = document.getElementById('spCountBadge');
+            if (badge) badge.innerText = `รวม ${db.sellingPoints.length} จุด`;
+        }
+
+        function openExcelImportModal() { document.getElementById('modalExcelImport').classList.remove('hidden'); }
+        function closeExcelImportModal() { document.getElementById('modalExcelImport').classList.add('hidden'); }
+
+        function processExcelImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(sheet);
+                    let count = 0;
+
+                    rows.forEach(r => {
+                        const name = r['Name'] || r['ชื่อจุดจำหน่าย'] || r['ชื่อสถานที่'];
+                        const lat = parseFloat(r['Latitude'] || r['ละติจูด'] || r['Lat']);
+                        const lng = parseFloat(r['Longitude'] || r['ลองจิจูด'] || r['Lng']);
+
+                        if (name && !isNaN(lat) && !isNaN(lng)) {
+                            const id = 'sp-ex-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+                            db.sellingPoints.push({
+                                id, name, entrepreneurId: '',
+                                datetime: r['Datetime'] || r['วันเวลา'] || new Date().toISOString().slice(0,16),
+                                lat, lng,
+                                status: r['Status'] || r['สถานะ'] || 'ยังไม่ดำเนินการ',
+                                images: [],
+                                note: r['Note'] || r['หมายเหตุ'] || 'นำเข้าจาก Excel'
+                            });
+
+                            db.sessions.push({
+                                id: 'session_' + id,
+                                sellingPointId: id,
+                                title: name,
+                                location: sanitizeLocationName(name),
+                                date: new Date().toISOString().slice(0,10),
+                                salesQuantities: { "1": 100, "2": 200, "3": 150 },
+                                expenses: JSON.parse(JSON.stringify(db.masterExpenses))
+                            });
+                            count++;
+                        }
+                    });
+
+                    saveToLocalStorage();
+                    renderSellingPointsTable();
+                    renderMapMarkers();
+                    initSessionSelect();
+                    closeExcelImportModal();
+                    showToast('นำเข้าสำเร็จ', `เพิ่มจุดจำหน่ายจาก Excel สำเร็จ ${count} รายการ`);
+                } catch(err) {
+                    alert('เกิดข้อผิดพลาดในการอ่านไฟล์ Excel: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function downloadExcelTemplate() {
+            const data = [
+                { 'Name': 'จุดจำหน่ายตัวอย่าง ตลาดสด', 'Datetime': '2026-10-25 09:00', 'Latitude': 6.78, 'Longitude': 100.08, 'Status': 'ยังไม่ดำเนินการ', 'Note': 'ตัวอย่าง' }
+            ];
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Template");
+            XLSX.writeFile(wb, "BlueFlag_SellingPoints_Template.xlsx");
+        }
+
+        function updateDashboardMetrics() {
+            const total = db.sellingPoints.length;
+            const done = db.sellingPoints.filter(p => p.status === 'ดำเนินการแล้ว').length;
+            const dashTotal = document.getElementById('dashTotalPoints');
+            const dashDone = document.getElementById('dashDonePoints');
+            const dashPending = document.getElementById('dashPendingPoints');
+            
+            if(dashTotal) dashTotal.innerText = total;
+            if(dashDone) dashDone.innerText = done;
+            if(dashPending) dashPending.innerText = total - done;
+
+            let totalCostLivingAll = 0, maxVal = -1, minVal = Infinity, maxTitle = "-", minTitle = "-";
+            db.sessions.forEach(s => {
+                let sessionCostLiving = 0;
+                db.masterProducts.forEach(p => {
+                    let qty = s.salesQuantities[p.id] || 0;
+                    sessionCostLiving += (p.marketPrice - p.thongfaPrice) * qty;
+                });
+                s.totalCostLiving = sessionCostLiving;
+                totalCostLivingAll += sessionCostLiving;
+
+                if (sessionCostLiving > maxVal) { maxVal = sessionCostLiving; maxTitle = s.title + ` (${sessionCostLiving.toLocaleString('th-TH', {minimumFractionDigits:2})} บาท)`; }
+                if (sessionCostLiving < minVal) { minVal = sessionCostLiving; minTitle = s.title + ` (${sessionCostLiving.toLocaleString('th-TH', {minimumFractionDigits:2})} บาท)`; }
+            });
+
+            const dashCost = document.getElementById('dashTotalCostLiving');
+            const maxText = document.getElementById('maxCostLivingText');
+            const minText = document.getElementById('minCostLivingText');
+
+            if(dashCost) dashCost.innerText = totalCostLivingAll.toLocaleString('th-TH', {minimumFractionDigits:2}) + ' บ.';
+            if(maxText) maxText.innerText = db.sessions.length > 0 ? maxTitle : "ไม่มีข้อมูล";
+            if(minText) minText.innerText = db.sessions.length > 0 ? minTitle : "ไม่มีข้อมูล";
+        }
+
+        function renderDashboardCharts() {
+            updateDashboardMetrics();
+            const done = db.sellingPoints.filter(p => p.status === 'ดำเนินการแล้ว').length;
+            const pending = db.sellingPoints.length - done;
+
+            const statusCtx = document.getElementById('statusChart');
+            if (statusCtx) {
+                if (statusChartInstance) statusChartInstance.destroy();
+                statusChartInstance = new Chart(statusCtx.getContext('2d'), {
+                    type: 'doughnut',
+                    data: { labels: ['ดำเนินการแล้ว', 'ยังไม่ดำเนินการ'], datasets: [{ data: [done, pending], backgroundColor: ['#10b981', '#f59e0b'] }] },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+
+            const sessionLabels = db.sessions.map(s => s.title);
+            const sessionValues = db.sessions.map(s => s.totalCostLiving || 0);
+
+            const barCtx = document.getElementById('financialBarChart');
+            if (barCtx) {
+                if (financialBarChartInstance) financialBarChartInstance.destroy();
+                financialBarChartInstance = new Chart(barCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: { labels: sessionLabels, datasets: [{ label: 'มูลค่าลดค่าครองชีพประชาชน (บาท)', data: sessionValues, backgroundColor: '#0062c4', borderRadius: 6 }] },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                });
+            }
+        }
+        function refreshDashboard() { renderDashboardCharts(); showToast('อัปเดต', 'รีเฟรชข้อมูลเรียบร้อย'); }
+
+        function renderReportTable() {
+            const dateText = document.getElementById('reportDateText');
+            if(dateText) dateText.innerText = new Date().toLocaleDateString('th-TH');
+            
+            const repTotal = document.getElementById('repTotal');
+            const repDone = document.getElementById('repDone');
+            const repPending = document.getElementById('repPending');
+
+            if(repTotal) repTotal.innerText = db.sellingPoints.length;
+            const done = db.sellingPoints.filter(p => p.status === 'ดำเนินการแล้ว').length;
+            if(repDone) repDone.innerText = done;
+            if(repPending) repPending.innerText = db.sellingPoints.length - done;
+
+            const tbody = document.getElementById('reportFinancialTableBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = db.sessions.map((s, i) => {
+                let sessionSales = 0, sessionCostLiving = 0, sessionMarket = 0;
+                db.masterProducts.forEach(p => {
+                    const qty = s.salesQuantities[p.id] !== undefined ? s.salesQuantities[p.id] : 100;
+                    sessionSales += p.thongfaPrice * qty;
+                    sessionCostLiving += (p.marketPrice - p.thongfaPrice) * qty;
+                    sessionMarket += p.marketPrice * qty;
+                });
+
+                let costLivingPercent = sessionMarket > 0 ? ((sessionCostLiving / sessionMarket) * 100).toFixed(2) : '0.00';
+                let displayLocation = s.location ? sanitizeLocationName(s.location) : '';
+
+                return `
+                    <tr>
+                        <td class="p-2 border border-slate-300 text-center font-medium">${i+1}</td>
+                        <td class="p-2 border border-slate-300 font-semibold text-slate-800">${s.title}<br><span class="text-[10px] text-slate-500 font-normal">${displayLocation ? 'ณ ' + displayLocation : ''}</span></td>
+                        <td class="p-2 border border-slate-300 text-right font-mono">${sessionSales.toLocaleString('th-TH', {minimumFractionDigits:2})}</td>
+                        <td class="p-2 border border-slate-300 text-right font-mono">${sessionCostLiving.toLocaleString('th-TH', {minimumFractionDigits:2})}</td>
+                        <td class="p-2 border border-slate-300 text-right font-mono">${costLivingPercent}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function exportReportWordPortrait() {
+            const docElement = document.getElementById('reportDocument').cloneNode(true);
+            const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+            <head><meta charset='utf-8'><title>Executive Report</title>
+            <style>
+                @page WordSection1 { size: 210mm 297mm; margin: 15mm 12mm; }
+                div.WordSection1 { page: WordSection1; }
+                body { font-family: 'TH Sarabun PSK', 'Angsana New', sans-serif; font-size: 14pt; }
+                h1 { font-size: 18pt; font-weight: bold; color: #0b3a6e; margin-bottom: 5px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 15px; }
+                th, td { border: 1px solid #000000; padding: 6px 8px; font-size: 12pt; }
+                th { background-color: #f1f5f9; font-weight: bold; text-align: center; }
+                .text-right { text-align: right; }
+                .text-center { text-align: center; }
+                .font-bold { font-weight: bold; }
+            </style>
+            </head>
+            <body><div class="WordSection1">${docElement.innerHTML}</div></body></html>`;
+            
+            const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'BlueFlag_Portrait_Executive_Report.doc';
+            a.click();
+        }
+
+        function initSessionSelect() {
+            const sel = document.getElementById('sessionSelect');
+            if(!sel) return;
+            sel.innerHTML = db.sessions.map(s => `<option value="${s.id}">${s.title}</option>`).join('');
+            if (db.activeSessionId) sel.value = db.activeSessionId;
+        }
+
+        function getCurrentSession() {
+            let session = db.sessions.find(s => s.id === db.activeSessionId);
+            if (!session && db.sessions.length > 0) {
+                session = db.sessions[0];
+                db.activeSessionId = session.id;
+            }
+            return session;
+        }
+
+        function changeSession() {
+            const sel = document.getElementById('sessionSelect');
+            if(sel) {
+                db.activeSessionId = sel.value;
+                loadCurrentSessionToForm();
+                renderReport();
+            }
+        }
+
+        function addNewSession() {
+            const id = 'session_' + Date.now();
+            const newS = { 
+                id, 
+                title: `รอบการขายใหม่ ${db.sessions.length + 1}`, 
+                location: '', 
+                date: '', 
+                salesQuantities: {}, 
+                expenses: JSON.parse(JSON.stringify(db.masterExpenses)) 
+            };
+            db.sessions.push(newS);
+            db.activeSessionId = id;
+            initSessionSelect();
+            loadCurrentSessionToForm();
+            renderReport();
+        }
+
+        function renameCurrentSession() {
+            const s = getCurrentSession();
+            if(!s) return;
+            const name = prompt("เปลี่ยนชื่อรอบการขาย:", s.title);
+            if (name) { s.title = name; initSessionSelect(); }
+        }
+
+        function loadCurrentSessionToForm() {
+            const s = getCurrentSession();
+            if (!s) return;
+            const locInput = document.getElementById('inputLocation');
+            const dateInput = document.getElementById('inputDate');
+            if(locInput) locInput.value = s.location ? sanitizeLocationName(s.location) : '';
+            if(dateInput) dateInput.value = s.date || '';
+            renderInputSalesTable();
+            renderInputExpensesTable();
+        }
+
+        function renderInputSalesTable() {
+            const tbody = document.getElementById('inputProductsBody');
+            if (!tbody) return;
+            const s = getCurrentSession();
+            if (!s) return;
+
+            tbody.innerHTML = db.masterProducts.map((p, i) => {
+                const qty = s.salesQuantities[p.id] !== undefined ? s.salesQuantities[p.id] : 100;
+                return `
+                    <tr>
+                        <td class="p-3 text-center">${i+1}</td>
+                        <td class="p-3 font-semibold">${p.name}</td>
+                        <td class="p-3 text-center">${p.unit}</td>
+                        <td class="p-3 text-right font-mono">${p.marketPrice.toFixed(2)}</td>
+                        <td class="p-3 text-right font-mono">${p.costPrice.toFixed(2)}</td>
+                        <td class="p-3 text-right font-mono text-brand-600 font-bold">${p.thongfaPrice.toFixed(2)}</td>
+                        <td class="p-3 bg-blue-50/50 text-center">
+                            <input type="number" min="0" value="${qty}" oninput="updateSalesQuantity(${p.id}, this.value)" class="w-28 text-center font-bold border rounded-lg p-1.5 bg-white shadow-sm">
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateSalesQuantity(productId, val) {
+            const s = getCurrentSession();
+            if(!s) return;
+            s.salesQuantities[productId] = parseFloat(val) || 0;
+            renderReport();
+        }
+
+        function renderInputExpensesTable() {
+            const tbody = document.getElementById('inputExpensesBody');
+            if(!tbody) return;
+            const s = getCurrentSession();
+            if(!s) return;
+            if(!s.expenses) s.expenses = JSON.parse(JSON.stringify(db.masterExpenses));
+
+            tbody.innerHTML = s.expenses.map((exp, i) => `
+                <tr>
+                    <td class="p-3 text-center">${i+1}</td>
+                    <td class="p-3"><input type="text" value="${exp.name}" oninput="updateExpenseName(${i}, this.value)" class="w-full border rounded p-1.5 text-sm"></td>
+                    <td class="p-3 text-right"><input type="number" min="0" step="any" value="${exp.amount}" oninput="updateExpenseAmount(${i}, this.value)" class="w-36 text-right font-mono border rounded p-1.5 text-sm"></td>
+                    <td class="p-3 text-center"><button onclick="removeExpenseItem(${i})" class="text-red-600 font-bold">✕</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function updateExpenseName(index, val) { const s = getCurrentSession(); if(s) { s.expenses[index].name = val; renderReport(); } }
+        function updateExpenseAmount(index, val) { const s = getCurrentSession(); if(s) { s.expenses[index].amount = parseFloat(val) || 0; renderReport(); } }
+        function addExpenseItem() { const s = getCurrentSession(); if(s) { s.expenses.push({ name: 'ค่าใช้จ่ายอื่นๆ', amount: 0 }); renderInputExpensesTable(); renderReport(); } }
+        function removeExpenseItem(index) { const s = getCurrentSession(); if(s) { s.expenses.splice(index, 1); renderInputExpensesTable(); renderReport(); } }
+        function resetDefaultExpenses() { const s = getCurrentSession(); if(s) { s.expenses = JSON.parse(JSON.stringify(db.masterExpenses)); renderInputExpensesTable(); renderReport(); showToast('รีเซ็ต', 'รีเซ็ต 9 รายการค่าใช้จ่ายเรียบร้อย'); } }
+
+        function updateCurrentSessionHeader() {
+            const s = getCurrentSession();
+            if(!s) return;
+            s.location = sanitizeLocationName(document.getElementById('inputLocation').value);
+            s.date = document.getElementById('inputDate').value;
+            renderReport();
+        }
+
+        function renderReport() {
+            const s = getCurrentSession();
+            const pLoc = document.getElementById('previewLocation');
+            const pDate = document.getElementById('previewDate');
+            if(pLoc) pLoc.innerText = s ? (s.location ? `ณ ${sanitizeLocationName(s.location)}` : 'ณ .....') : '';
+            if(pDate) pDate.innerText = s ? (s.date || '') : '';
+
+            const tbody = document.getElementById('previewProductTableBody');
+            if(!tbody) return;
+            if(!s) return;
+
+            let sumComp = 0, sumSales = 0, sumMarket = 0, sumCostLiving = 0;
+
+            tbody.innerHTML = db.masterProducts.map((p, i) => {
+                let qty = s.salesQuantities[p.id] !== undefined ? s.salesQuantities[p.id] : 100;
+                let redCost = p.costPrice - p.thongfaPrice;
+                let costLiving = p.marketPrice - p.thongfaPrice;
+                let percent = p.marketPrice > 0 ? ((costLiving / p.marketPrice) * 100).toFixed(2) : '0.00';
+                let comp = redCost * qty;
+                let sales = p.thongfaPrice * qty;
+                let mVal = p.marketPrice * qty;
+                let totCostLiving = costLiving * qty;
+
+                sumComp += comp;
+                sumSales += sales;
+                sumMarket += mVal;
+                sumCostLiving += totCostLiving;
+
+                return `
+                    <tr>
+                        <td>${i+1}</td>
+                        <td class="text-left-custom">${p.name}</td>
+                        <td>${qty.toLocaleString()}</td>
+                        <td>${p.unit}</td>
+                        <td class="text-right-custom">${p.marketPrice.toFixed(2)}</td>
+                        <td class="text-right-custom">${p.costPrice.toFixed(2)}</td>
+                        <td class="text-right-custom">${p.thongfaPrice.toFixed(2)}</td>
+                        <td class="text-right-custom">${redCost.toFixed(2)}</td>
+                        <td class="text-right-custom">${costLiving.toFixed(2)}</td>
+                        <td>${percent}</td>
+                        <td class="text-right-custom">${comp.toLocaleString('th-TH', {minimumFractionDigits:2})}</td>
+                        <td class="text-right-custom">${sales.toLocaleString('th-TH', {minimumFractionDigits:2})}</td>
+                        <td class="text-right-custom">${mVal.toLocaleString('th-TH', {minimumFractionDigits:2})}</td>
+                        <td class="text-right-custom">${totCostLiving.toLocaleString('th-TH', {minimumFractionDigits:2})}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('sumCompensation').innerText = sumComp.toLocaleString('th-TH', {minimumFractionDigits:2});
+            document.getElementById('sumSales').innerText = sumSales.toLocaleString('th-TH', {minimumFractionDigits:2});
+            document.getElementById('sumMarketValue').innerText = sumMarket.toLocaleString('th-TH', {minimumFractionDigits:2});
+            document.getElementById('sumCostLiving').innerText = sumCostLiving.toLocaleString('th-TH', {minimumFractionDigits:2});
+
+            let totalExpense = s.expenses ? s.expenses.reduce((acc, x) => acc + (x.amount || 0), 0) : 0;
+            document.getElementById('sumManagementFee').innerText = totalExpense.toLocaleString('th-TH', {minimumFractionDigits:2});
+            let totalComp = sumComp + totalExpense;
+            document.getElementById('sumTotalCompensation').innerText = totalComp.toLocaleString('th-TH', {minimumFractionDigits:2});
+
+            const expTbody = document.getElementById('previewExpenseTableBody');
+            if(expTbody) {
+                expTbody.innerHTML = s.expenses && s.expenses.length > 0 ? s.expenses.map((exp, i) => `
+                    <tr>
+                        <td>${i+1}</td>
+                        <td class="text-left-custom">${exp.name}</td>
+                        <td class="text-right-custom">${(exp.amount || 0).toLocaleString('th-TH', {minimumFractionDigits:2})}</td>
+                    </tr>
+                `).join('') : `<tr><td colspan="3">ไม่มีค่าใช้จ่าย</td></tr>`;
+            }
+            document.getElementById('sumExpenseTotal').innerText = totalExpense.toLocaleString('th-TH', {minimumFractionDigits:2});
+
+            let ratio = sumMarket > 0 ? ((sumCostLiving / sumMarket) * 100).toFixed(8) : "0.00000000";
+            const ratioEl = document.getElementById('ratioDisplay');
+            if(ratioEl) ratioEl.innerText = ratio;
+        }
+
+        function openPdfPrintModal(targetTab, defaultOrientation = 'portrait') {
+            printTargetTab = targetTab;
+            const orientationRadios = document.getElementsByName('pdfOrientation');
+            for (let r of orientationRadios) {
+                if (r.value === defaultOrientation) r.checked = true;
+            }
+            document.getElementById('modalPdfPrintConfig').classList.remove('hidden');
+        }
+
+        function closePdfPrintModal() {
+            document.getElementById('modalPdfPrintConfig').classList.add('hidden');
+        }
+
+        function executePdfPrint() {
+            const orientation = document.querySelector('input[name="pdfOrientation"]:checked')?.value || 'portrait';
+            const pageSize = document.getElementById('pdfPageSize')?.value || 'A4';
+
+            const existingDynamicStyle = document.getElementById('dynamicPdfPrintStyle');
+            if (existingDynamicStyle) existingDynamicStyle.remove();
+
+            const s = getCurrentSession();
+            const locName = s && s.location ? s.location.replace(/[\/\?<>\\:\*\|"]/g, '_') : 'จุดจำหน่าย';
+            const dateName = s && s.date ? s.date.replace(/[\/\?<>\\:\*\|"]/g, '_') : 'ไม่ระบุวันที่';
+            const customFileName = `${locName}_${dateName}`;
+
+            const styleEl = document.createElement('style');
+            styleEl.id = 'dynamicPdfPrintStyle';
+            styleEl.innerHTML = `
+                @media print {
+                    @page {
+                        size: ${pageSize} ${orientation};
+                        margin: 0mm !important;
+                    }
+                    body {
+                        padding: ${orientation === 'landscape' ? '6mm' : '8mm'} !important;
+                        box-sizing: border-box !important;
+                    }
+                }
+            `;
+            document.head.appendChild(styleEl);
+
+            closePdfPrintModal();
+
+            document.body.className = `h-full flex flex-col text-slate-800 bg-slate-50 antialiased printing-custom print-target-${printTargetTab}`;
+            
+            const originalTitle = document.title;
+            document.title = customFileName;
+
+            window.print();
+
+            setTimeout(() => {
+                document.title = originalTitle;
+                document.body.className = "h-full flex flex-col text-slate-800 bg-slate-50 antialiased";
+            }, 500);
+        }
+
+        function exportToWord() {
+            const s = getCurrentSession();
+            const locName = s && s.location ? s.location.replace(/[\/\?<>\\:\*\|"]/g, '_') : 'จุดจำหน่าย';
+            const dateName = s && s.date ? s.date.replace(/[\/\?<>\\:\*\|"]/g, '_') : 'ไม่ระบุวันที่';
+            const fileName = `${locName}_${dateName}.doc`;
+
+            const content = document.getElementById('reportContent').innerHTML;
+            const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+            <head><meta charset='utf-8'><title>${fileName}</title>
+            <style>
+                @page WordSection1 { size: 297mm 210mm; margin: 10mm; }
+                div.WordSection1 { page: WordSection1; }
+                body { font-family: 'TH Sarabun PSK', 'Angsana New', sans-serif; font-size: 13pt; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+                th, td { border: 1px solid #000000; padding: 4px 5px; text-align: center; font-size: 11pt; }
+                th { background-color: #f1f5f9; font-weight: bold; }
+            </style>
+            </head>
+            <body><div class="WordSection1">${content}</div></body></html>`;
+            
+            const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; 
+            a.download = fileName;
+            a.click();
+        }
+
+        function openMasterModal() {
+            const tbody = document.getElementById('masterTableBody');
+            tbody.innerHTML = db.masterProducts.map((p, i) => `
+                <tr>
+                    <td class="p-2"><input type="text" value="${p.name}" oninput="db.masterProducts[${i}].name=this.value" class="border rounded p-1 w-full text-xs"></td>
+                    <td class="p-2"><input type="text" value="${p.unit}" oninput="db.masterProducts[${i}].unit=this.value" class="border rounded p-1 w-20 text-xs"></td>
+                    <td class="p-2"><input type="number" value="${p.marketPrice}" oninput="db.masterProducts[${i}].marketPrice=parseFloat(this.value)||0" class="border rounded p-1 w-24 text-xs"></td>
+                    <td class="p-2"><input type="number" value="${p.costPrice}" oninput="db.masterProducts[${i}].costPrice=parseFloat(this.value)||0" class="border rounded p-1 w-24 text-xs"></td>
+                    <td class="p-2"><input type="number" value="${p.thongfaPrice}" oninput="db.masterProducts[${i}].thongfaPrice=parseFloat(this.value)||0" class="border rounded p-1 w-24 text-xs"></td>
+                    <td class="p-2"><button onclick="db.masterProducts.splice(${i},1); openMasterModal();" class="text-red-600 font-bold">✕</button></td>
+                </tr>
+            `).join('');
+            document.getElementById('masterModal').classList.remove('hidden');
+        }
+        function closeMasterModal() { document.getElementById('masterModal').classList.add('hidden'); renderInputSalesTable(); renderReport(); }
+        function addNewMasterProductRow() {
+            db.masterProducts.push({ id: Date.now(), name: "สินค้าใหม่", unit: "ชิ้น", marketPrice: 100, costPrice: 90, thongfaPrice: 70 });
+            openMasterModal();
+        }
+        function saveMasterCatalog() { saveToLocalStorage(); closeMasterModal(); showToast('บันทึก', 'บันทึกสินค้าตั้งต้นเรียบร้อย'); }
+
+        function openExpenseMasterModal() {
+            const tbody = document.getElementById('expenseMasterTableBody');
+            tbody.innerHTML = db.masterExpenses.map((exp, i) => `
+                <tr>
+                    <td class="p-2"><input type="text" value="${exp.name}" oninput="db.masterExpenses[${i}].name=this.value" class="border rounded p-1 w-full text-xs"></td>
+                    <td class="p-2 text-right"><input type="number" value="${exp.amount}" oninput="db.masterExpenses[${i}].amount=parseFloat(this.value)||0" class="border rounded p-1 w-32 text-right text-xs"></td>
+                    <td class="p-2 text-center"><button onclick="db.masterExpenses.splice(${i},1); openExpenseMasterModal();" class="text-red-600 font-bold">✕</button></td>
+                </tr>
+            `).join('');
+            document.getElementById('expenseMasterModal').classList.remove('hidden');
+        }
+        function closeExpenseMasterModal() { document.getElementById('expenseMasterModal').classList.add('hidden'); }
+        function addNewExpenseMasterRow() { db.masterExpenses.push({ name: "ค่าใช้จ่ายใหม่", amount: 0 }); openExpenseMasterModal(); }
+        function saveExpenseMasterCatalog() { saveToLocalStorage(); closeExpenseMasterModal(); showToast('บันทึก', 'บันทึกค่าใช้จ่ายตั้งต้นเรียบร้อย'); }
+    </script>
+</body>
+</html>
